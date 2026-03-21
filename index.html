@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ミセル — milkの困りごと掲示板（モックアップ）</title>
+<meta name="description" content="コワーキングスペースmilkのつながりから生まれた中標津の共助プラットフォーム">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; background: #f5f5f3; }
+  #root { max-width: 430px; margin: 0 auto; min-height: 100vh; background: #fff; position: relative; box-shadow: 0 0 40px rgba(0,0,0,.08); }
+  /* Banner for mockup context */
+  .mockup-banner { background: #1a1a1a; color: #fff; text-align: center; padding: 8px 16px; font-size: 11px; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 999; }
+  .mockup-banner a { color: #5DCAA5; text-decoration: none; }
+  @media (min-width: 431px) {
+    body { padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="mockup-banner">
+  📱 ミセル モックアップ v10 — <a href="https://github.com/okudatamiobanzai-web/doto-knowledge-base" target="_blank">設計ドキュメント</a>
+</div>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script type="text/babel">
+const { useState } = React;
+
+/* ─── Tokens ─── */
+const T={50:"#E1F5EE",100:"#9FE1CB",200:"#5DCAA5",400:"#1D9E75",600:"#0F6E56",800:"#085041"};
+const AM={50:"#FAEEDA",400:"#EF9F27",800:"#633806"};
+const CO={50:"#FAECE7",400:"#D85A30",800:"#712B13"};
+const PU={50:"#EEEDFE",400:"#7F77DD",800:"#3C3489"};
+const BL={50:"#E6F1FB",400:"#378ADD",800:"#0C447C"};
+const G={50:"#F1EFE8",100:"#D3D1C7",400:"#888780",600:"#5F5E5A",800:"#444441"};
+const BG="#ffffff",BG2="#f5f5f3",TXT="#1a1a1a";
+
+/* ─── Core UI ─── */
+function Orb({ch,dots=0,sz=40,color=T,onClick}){const r=sz*0.55;return <div onClick={onClick} style={{position:"relative",width:sz,height:sz,flexShrink:0,cursor:onClick?"pointer":"default"}}>{dots>0&&<div style={{position:"absolute",top:"50%",left:"50%",width:sz*1.3,height:sz*1.3,transform:"translate(-50%,-50%)",borderRadius:"50%",background:`radial-gradient(circle,${color[200]}22 0%,transparent 70%)`}}/>}<div style={{position:"absolute",top:"50%",left:"50%",width:sz*.7,height:sz*.7,transform:"translate(-50%,-50%)",borderRadius:"50%",background:color[50],border:`1.5px solid ${color[200]}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:sz*.28,fontWeight:500,color:color[800],zIndex:2}}>{ch}</div>{Array.from({length:dots}).map((_,i)=>{const a=(i/Math.max(dots,1))*Math.PI*2-Math.PI/2;const x=Math.cos(a)*r+sz/2-sz*.06;const y=Math.sin(a)*r+sz/2-sz*.06;return <div key={i} style={{position:"absolute",left:x,top:y,width:sz*.12,height:sz*.12,borderRadius:"50%",background:color[400],zIndex:3}}/>})}</div>;}
+function Badge({text,bg,fg}){return <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:bg,color:fg,whiteSpace:"nowrap"}}>{text}</span>;}
+function Chip({label,selected,onClick}){return <button onClick={onClick} style={{padding:"7px 12px",borderRadius:16,fontSize:12,border:`0.5px solid ${selected?T[200]:G[100]}`,color:selected?T[800]:G[600],background:selected?T[50]:"transparent",cursor:"pointer",whiteSpace:"nowrap"}}>{label}</button>;}
+function Input({placeholder,value,onChange,style:sx}){return <input value={value||""} onChange={e=>onChange?.(e.target.value)} placeholder={placeholder} style={{width:"100%",padding:"10px 12px",border:`0.5px solid ${G[100]}`,borderRadius:8,fontSize:14,boxSizing:"border-box",background:BG,color:TXT,...sx}}/>;}
+function TextArea({placeholder,value,onChange,rows}){return <textarea value={value||""} onChange={e=>onChange?.(e.target.value)} placeholder={placeholder} rows={rows||3} style={{width:"100%",padding:"10px 12px",border:`0.5px solid ${G[100]}`,borderRadius:8,fontSize:14,fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",background:BG,color:TXT,minHeight:rows?undefined:72}}/>;}
+function Label({children}){return <label style={{display:"block",fontSize:12,color:G[600],marginBottom:6}}>{children}</label>;}
+function PrimaryBtn({children,onClick,disabled}){return <button onClick={onClick} disabled={disabled} style={{width:"100%",padding:14,borderRadius:12,fontSize:15,fontWeight:500,background:disabled?G[100]:T[600],color:disabled?G[400]:"#fff",border:"none",cursor:disabled?"default":"pointer"}}>{children}</button>;}
+function SnsLinks({sns,size="sm"}){if(!sns||Object.values(sns).every(v=>!v))return null;const ic={line:{l:"LINE",c:"#06C755"},instagram:{l:"Insta",c:"#E4405F"},x:{l:"X",c:"#1DA1F2"},facebook:{l:"FB",c:"#1877F2"}};const fs=size==="lg"?12:11;const pd=size==="lg"?"3px 10px":"2px 8px";return <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{Object.entries(sns).filter(([_,v])=>v).map(([k])=>{const i=ic[k]||{l:k,c:G[600]};return <span key={k} style={{fontSize:fs,padding:pd,borderRadius:10,background:BG2,color:G[800],display:"inline-flex",alignItems:"center",gap:3}}><span style={{width:5,height:5,borderRadius:"50%",background:i.c}}/>{i.l}</span>;})}</div>;}
+function GiftedTags({tags}){if(!tags?.length)return null;const pal=[T,BL,PU,CO,AM];return <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{tags.map((t,i)=>{const c=pal[i%pal.length];return <span key={t} style={{fontSize:11,padding:"3px 10px",borderRadius:12,background:c[50],color:c[800]}}>{"✦ "+t}</span>;})}</div>;}
+function Overlay({onClose,children}){return <div style={{position:"fixed",inset:0,zIndex:120,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}><div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.3)"}}/><div onClick={e=>e.stopPropagation()} style={{position:"relative",width:"100%",maxWidth:430,background:BG,borderRadius:"16px 16px 0 0",paddingBottom:"env(safe-area-inset-bottom,8px)"}}>{children}</div></div>;}
+const tagIcon={作業:"🔨",送迎:"🚗",制作:"🎨",子ども:"👶",相談:"💬",暮らし:"🏠"};
+
+/* ─── Data ─── */
+const calcDots=(p)=>Math.min(8,(p.completedHelp||0)+(p.referrals||0)+(p.gifted||[]).length);
+const _people=[
+  {id:"tanaka",name:"田中裕子",ch:"田",color:T,can:["デザイン","保育","送迎"],milkComment:"デザインも保育もできる頼れる存在。",sns:{instagram:"tanaka_yuko",line:"tanaka_y"},area:"東2条",bio:"グラフィックデザイナー。元保育士。子ども3人の母。",tags:["保育士確認済み"],gifted:["丁寧","また頼みたい","子ども好き","センスがいい"],completedHelp:8,completedReq:2,referrals:3},
+  {id:"yamada",name:"山田太一",ch:"山",color:T,can:["力仕事","DIY","除雪"],milkComment:"真面目で体力もある。力仕事系は安心。",sns:{x:"yamada_t1"},area:"西3条",bio:"建設業。休日は体を動かすのが好き。",tags:[],gifted:["時間に正確","黙々と丁寧","頼りになる"],completedHelp:5,completedReq:1,referrals:1},
+  {id:"nakano",name:"中野誠",ch:"中",color:T,can:["不動産","空き家","相続相談"],milkComment:"空き家事情に一番詳しい人。",sns:{facebook:"nakano.makoto"},area:"中標津町",bio:"不動産業を営んで20年。",tags:[],gifted:["知識が深い","話しやすい","信頼できる"],completedHelp:6,completedReq:0,referrals:2},
+  {id:"sato",name:"佐藤美咲",ch:"佐",color:PU,can:["写真撮影"],milkComment:null,sns:{instagram:"sato_misaki_photo"},area:"中標津町",bio:"カメラが趣味。",tags:[],gifted:["センスがいい"],completedHelp:2,completedReq:1,referrals:0},
+  {id:"jfarm",name:"Jファーム",ch:"J",color:T,can:["酪農体験","撮影受入"],milkComment:"信頼できる牧場。",sns:{instagram:"jfarm_shimazaki"},area:"中標津町",bio:"家族経営の酪農牧場。",tags:[],isBusiness:true,bizName:"Jファームシマザキ",gifted:["あたたかい","また行きたい"],completedHelp:2,completedReq:3,referrals:1},
+];
+const people=_people.map(p=>({...p,dots:calcDots(p)}));
+const _my={id:"me",name:"佐々木あゆみ",ch:"佐",color:T,area:"南町",bio:"2歳の子がいます。",tags:[],sns:{line:"sasaki_a"},can:[],gifted:["あたたかい"],completedReq:3,completedHelp:1,referrals:0};
+const myProfile={..._my,dots:calcDots(_my)};
+
+/* Photos are now free — no Before/After labels required */
+const posts=[
+  {id:1,title:"雪下ろしをお願いしたい",body:"事務所の屋根に雪が溜まっています。半日くらいで終わる量です。",poster:"鈴木ミツコ",posterCh:"鈴",posterDots:1,reward:"5,000円",tag:"作業",tagColor:T,date:"3/18",sortDate:"2026-03-18",status:"open",comments:[
+    {user:"milk運営",ch:"mi",dots:6,color:T,isMilk:true,body:"山田さんが得意なのでつなぎますね。",refId:"yamada",refName:"山田太一"},
+  ]},
+  {id:2,title:"空港からホテルまで送ってほしい",body:"3/25に中標津空港着14:00。ホテルトーヨーグランドまで。",poster:"田村（旅行者）",posterCh:"田",posterDots:0,reward:"実費のみ",tag:"送迎",tagColor:BL,date:"3/25",sortDate:"2026-03-25",status:"open",comments:[]},
+  {id:3,title:"チラシのデザインをお願いしたい",body:"4月のマルシェ用A4チラシ1枚。",poster:"なかしべつ観光協会",posterCh:"な",posterDots:2,reward:"8,000円",tag:"制作",tagColor:PU,date:"〜3/25",sortDate:"2026-03-25",status:"open",comments:[
+    {user:"milk運営",ch:"mi",dots:6,color:T,isMilk:true,body:"田中さん、デザインお得意ですよね。",refId:"tanaka",refName:"田中裕子"},
+    {user:"中野誠",ch:"中",dots:4,color:T,userId:"nakano",body:"佐藤さんも素材撮影で手伝えるかも。",refId:"sato",refName:"佐藤美咲"},
+  ]},
+  {id:4,title:"親の空き家をどうすればいいかわからない",body:"昨年父が亡くなり実家が空き家に。",poster:"高橋健一",posterCh:"高",posterDots:0,reward:null,tag:"相談",tagColor:AM,date:"3/15",sortDate:"2026-03-15",status:"open",comments:[
+    {user:"milk運営",ch:"mi",dots:6,color:T,isMilk:true,body:"中野さんをつなぎます。",refId:"nakano",refName:"中野誠"},
+  ]},
+  /* ─── Resolved with RICH reports (free photos) ─── */
+  {id:5,title:"PCの初期設定がわからない",body:"新しいパソコンを買ったがWi-FiとLINEの設定ができない。",poster:"渡辺ハルエ",posterCh:"渡",posterDots:1,reward:"3,000円",tag:"暮らし",tagColor:T,date:"3/20",sortDate:"2026-03-20",status:"resolved",helperId:"yamada",comments:[
+    {user:"山田太一",ch:"山",dots:3,color:T,userId:"yamada",body:"僕が教えに行きますよ！"},
+  ],report:{
+    helperId:"yamada",helperName:"山田太一",duration:"約2時間",completedDate:"3/21",
+    photos:[
+      {desc:"箱から出したままの新品PC",color:"#e8e0d8",icon:"💻"},
+      {desc:"Wi-Fi接続完了。ブラウザが開いた！",color:BL[50],icon:"📶"},
+      {desc:"LINEでお孫さんとビデオ通話成功",color:T[50],icon:"📞"},
+      {desc:"教わったカメラで撮った庭のクロッカス",color:AM[50],icon:"🌸"},
+    ],
+    posterReport:{
+      text:"山田さん、本当にありがとうございました。パソコンの電源を入れるところから不安でしたが、一つ一つ丁寧に教えてくださいました。\n\nWi-Fiの設定だけでなく、LINEで孫とビデオ通話する方法まで教えてもらい、さっそく東京の孫と話せました。涙が出ました。\n\nカメラの使い方も教わったので、庭の花を撮ってLINEで送ってみたいと思います。また何かあったらお願いしたいです。",
+      photos:[{desc:"設定してもらった後のデスクトップ。壁紙は孫の写真に。",color:T[50],icon:"🖥️"}],
+    },
+    helperReport:{
+      text:"ハルエさんのお宅に伺いました。新品のノートPCで、初回セットアップから一緒にやりました。\n\n作業内容:\n・Wi-Fi接続とパスワード設定\n・Gmailアカウントの作成とログイン\n・LINEのインストールと友だち追加（お孫さん3人）\n・ビデオ通話のかけ方\n・カメラアプリの基本操作\n・壁紙をお孫さんの写真に変更\n\nハルエさんは覚えがとても早くて、最後にはご自分でLINEのスタンプを送れるようになっていました。「これで孫と毎日話せる」と喜んでくださって、こちらも嬉しかったです。",
+      photos:[
+        {desc:"一緒にLINEの設定中",color:BL[50],icon:"📱"},
+        {desc:"完了後の記念写真。ハルエさんの笑顔",color:CO[50],icon:"😊"},
+      ],
+    },
+  }},
+  {id:6,title:"庭の草刈りをお願いしたい",body:"自宅裏の草が伸び放題。面積は約30㎡。",poster:"田中裕子",posterCh:"田",posterDots:5,reward:"4,000円",tag:"作業",tagColor:T,date:"3/10",sortDate:"2026-03-10",status:"resolved",helperId:"yamada",comments:[],report:{
+    helperId:"yamada",helperName:"山田太一",duration:"約3時間",completedDate:"3/12",
+    photos:[
+      {desc:"膝丈まで伸びた雑草",color:"#d9d4c0",icon:"🌿"},
+      {desc:"刈り取り作業中の山田さん",color:BL[50],icon:"🔧"},
+      {desc:"きれいに刈り取り完了",color:T[50],icon:"✅"},
+      {desc:"堆肥用にまとめた刈り草",color:AM[50],icon:"♻️"},
+    ],
+    posterReport:{
+      text:"山田さんにお願いして大正解でした。裏庭が見違えるほどきれいに。\n\n刈った草もただ捨てるのではなく、堆肥用にまとめてくださって、そういう気配りがとてもありがたかったです。お昼にカレーを出したら「美味しい！」と言って食べてくれました。\n\n次は秋にまたお願いするかもしれません！",
+      photos:[{desc:"きれいになった裏庭。子どもたちが走り回れる！",color:T[50],icon:"🏡"}],
+    },
+    helperReport:{
+      text:"田中さんのお宅の裏庭30㎡の草刈りをしました。\n\n当日の作業:\n・エンジン草刈り機で全面刈り取り（約2時間）\n・刈り草の集積と堆肥エリアへの搬入（約40分）\n・境界沿いの丁寧な手刈り（約20分）\n\n草丈が膝くらいまで伸びていたので、まず高い位置で一度刈ってから、地際で二度刈りしました。お昼にカレーをご馳走になりました。いい運動になったし、きれいになると気持ちいいですね。",
+      photos:[{desc:"作業前の裏庭全景",color:"#d9d4c0",icon:"📐"},{desc:"刈り取り後。地面が見える",color:T[50],icon:"✨"}],
+    },
+  }},
+  {id:7,title:"ベビーシッターお願いしたい",body:"2歳児の見守り。3/29 14:00〜17:00。",poster:"佐々木あゆみ",posterCh:"佐",posterDots:1,reward:"時給1,500円",tag:"子ども",tagColor:CO,date:"3/29",sortDate:"2026-03-29",status:"matched",helperId:"tanaka",comments:[
+    {user:"milk運営",ch:"mi",dots:6,color:T,isMilk:true,body:"田中さんは元保育士です。",refId:"tanaka",refName:"田中裕子"},
+  ]},
+];
+const resolvedPosts=posts.filter(p=>p.status==="resolved"&&p.report);
+
+/* ════════════════════════════════════════
+   PHOTO GRID (horizontal scroll, free labels)
+   ════════════════════════════════════════ */
+function PhotoStrip({photos,height=130}){
+  if(!photos?.length) return null;
+  return <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4,WebkitOverflowScrolling:"touch"}}>
+    {photos.map((ph,i)=><div key={i} style={{minWidth:photos.length===1?"100%":180,flex:photos.length===1?"1":"none",borderRadius:12,overflow:"hidden",border:`0.5px solid ${G[100]}`}}>
+      <div style={{height,background:ph.color||BG2,display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <span style={{fontSize:36,opacity:.3}}>{ph.icon||"📷"}</span>
+      </div>
+      <div style={{padding:"8px 10px",fontSize:12,color:G[600],lineHeight:1.5,background:BG}}>{ph.desc}</div>
+    </div>)}
+  </div>;
+}
+
+/* Mini photo strip for cards */
+function MiniPhotoStrip({photos}){
+  if(!photos?.length) return null;
+  return <div style={{display:"flex",height:64,borderRadius:"8px 8px 0 0",overflow:"hidden"}}>
+    {photos.slice(0,4).map((ph,i)=><div key={i} style={{flex:1,background:ph.color||BG2,display:"flex",alignItems:"center",justifyContent:"center",borderRight:i<Math.min(photos.length,4)-1?`1px solid ${BG}`:"none"}}>
+      <span style={{fontSize:16,opacity:.25}}>{ph.icon||"📷"}</span>
+    </div>)}
+    {photos.length>4&&<div style={{position:"absolute",right:8,top:8,fontSize:10,padding:"1px 6px",borderRadius:4,background:"rgba(0,0,0,.5)",color:"#fff"}}>+{photos.length-4}</div>}
+  </div>;
+}
+
+/* ════════════════════════════════════════
+   REPORT INPUT SCREEN
+   ════════════════════════════════════════ */
+function ReportInputScreen({post,onClose}){
+  const [text,setText]=useState("");
+  const [photos,setPhotos]=useState([]);
+  const [submitted,setSubmitted]=useState(false);
+  const helper=people.find(p=>p.id===post?.helperId);
+
+  const addPhoto=()=>{
+    const captions=["作業前の様子","作業中","完了後の様子","その他の写真","記念写真"];
+    setPhotos(p=>[...p,{id:Date.now(),desc:"",color:[T[50],BL[50],AM[50],PU[50],CO[50]][p.length%5],icon:["📷","🔧","✅","🌸","😊"][p.length%5]}]);
+  };
+  const removePhoto=(id)=>setPhotos(p=>p.filter(x=>x.id!==id));
+  const updatePhotoDesc=(id,desc)=>setPhotos(p=>p.map(x=>x.id===id?{...x,desc}:x));
+
+  if(!post) return null;
+  if(submitted) return <div style={{position:"fixed",inset:0,zIndex:110,background:BG,maxWidth:430,margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 24px",textAlign:"center"}}>
+    <div style={{fontSize:40,marginBottom:16}}>📋</div>
+    <div style={{fontSize:20,fontWeight:500,color:TXT,marginBottom:8}}>レポートを投稿しました</div>
+    <div style={{fontSize:14,color:G[600],lineHeight:1.6,marginBottom:4}}>「{post.title}」の活動レポートが<br/>タイムラインに公開されます。</div>
+    <div style={{fontSize:13,color:G[400],marginBottom:24}}>{helper?.name||"お手伝いした方"}にもタグを贈りましょう</div>
+    <button onClick={onClose} style={{padding:"12px 32px",borderRadius:10,background:T[600],color:"#fff",border:"none",fontSize:14,fontWeight:500,cursor:"pointer"}}>閉じる</button>
+  </div>;
+
+  return <div style={{position:"fixed",inset:0,zIndex:110,background:BG,overflowY:"auto",maxWidth:430,margin:"0 auto"}}>
+    {/* Header */}
+    <div style={{padding:"16px 16px 12px",borderBottom:`0.5px solid ${G[100]}`,position:"sticky",top:0,background:BG,zIndex:2}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <button onClick={onClose} style={{fontSize:13,color:G[400],background:"none",border:"none",cursor:"pointer"}}>× キャンセル</button>
+        <div style={{fontSize:15,fontWeight:500,color:TXT}}>活動レポート</div>
+        <div style={{width:60}}/>
+      </div>
+    </div>
+
+    {/* Post context card */}
+    <div style={{margin:"16px 16px 0",padding:"12px 14px",background:BG2,borderRadius:10}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+        <Badge text={post.tag} bg={post.tagColor[50]} fg={post.tagColor[800]}/>
+        <span style={{fontSize:12,color:G[400]}}>{post.date}</span>
+      </div>
+      <div style={{fontSize:14,fontWeight:500,color:TXT,marginBottom:6}}>{post.title}</div>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <Orb ch={post.posterCh} dots={post.posterDots} sz={22} color={post.posterDots>2?T:G}/>
+          <span style={{fontSize:11,color:G[600]}}>{post.poster}</span>
+        </div>
+        {helper&&<><span style={{color:G[400],fontSize:10}}>×</span><div style={{display:"flex",alignItems:"center",gap:6}}><Orb ch={helper.ch} dots={helper.dots} sz={22} color={helper.color}/><span style={{fontSize:11,color:G[600]}}>{helper.name}</span></div></>}
+      </div>
+    </div>
+
+    {/* Report form — all in one scroll */}
+    <div style={{padding:"20px 16px"}}>
+      {/* Text */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:14,fontWeight:500,color:TXT,marginBottom:4}}>📝 振り返り・感想</div>
+        <div style={{fontSize:12,color:G[400],marginBottom:8}}>どんな体験だったか自由に書いてください。お手伝いの内容、感じたこと、お礼のメッセージなど。</div>
+        <TextArea
+          placeholder={"例:\n・丁寧に教えてくださいました\n・カメラの使い方まで教えてもらって嬉しかった\n・また何かあったらお願いしたいです"}
+          value={text}
+          onChange={setText}
+          rows={6}
+        />
+        <div style={{textAlign:"right",fontSize:11,color:text.length>0?T[600]:G[400],marginTop:4}}>{text.length}文字</div>
+      </div>
+
+      {/* Photos */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:14,fontWeight:500,color:TXT,marginBottom:4}}>📷 写真</div>
+        <div style={{fontSize:12,color:G[400],marginBottom:10}}>作業の様子、完成の状態、記念写真など。何枚でもOK。</div>
+
+        {/* Added photos */}
+        {photos.map((ph,i)=><div key={ph.id} style={{marginBottom:10,borderRadius:10,overflow:"hidden",border:`0.5px solid ${G[100]}`}}>
+          <div style={{height:100,background:ph.color,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+            <span style={{fontSize:32,opacity:.25}}>{ph.icon}</span>
+            <button onClick={()=>removePhoto(ph.id)} style={{position:"absolute",top:8,right:8,width:24,height:24,borderRadius:"50%",background:"rgba(0,0,0,.4)",color:"#fff",border:"none",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+            <div style={{position:"absolute",bottom:8,left:8,fontSize:10,color:"#fff",background:"rgba(0,0,0,.4)",padding:"1px 8px",borderRadius:4}}>写真 {i+1}</div>
+          </div>
+          <div style={{padding:"8px 10px"}}>
+            <input value={ph.desc} onChange={e=>updatePhotoDesc(ph.id,e.target.value)} placeholder="この写真の説明（任意）" style={{width:"100%",border:"none",fontSize:13,color:TXT,outline:"none",background:"transparent",boxSizing:"border-box"}}/>
+          </div>
+        </div>)}
+
+        {/* Add photo button */}
+        <button onClick={addPhoto} style={{width:"100%",padding:"16px",borderRadius:10,border:`1.5px dashed ${G[100]}`,background:BG2,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+          <svg width="24" height="24" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke={G[400]} strokeWidth="1.3"/><circle cx="8.5" cy="10" r="1.5" fill={G[400]}/><path d="M5 17l4-4 3 3 3-4 4 5" stroke={G[400]} strokeWidth="1.3" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <span style={{fontSize:13,color:G[600]}}>写真を追加</span>
+          <span style={{fontSize:11,color:G[400]}}>タップしてカメラロールから選択</span>
+        </button>
+      </div>
+
+      {/* Duration */}
+      <div style={{marginBottom:24}}>
+        <div style={{fontSize:14,fontWeight:500,color:TXT,marginBottom:8}}>⏱ かかった時間</div>
+        <div style={{display:"flex",gap:8}}>
+          {["30分","1時間","2時間","3時間","半日","1日"].map(d=><button key={d} style={{padding:"8px 12px",borderRadius:8,fontSize:12,border:`0.5px solid ${G[100]}`,background:BG,color:TXT,cursor:"pointer"}}>{d}</button>)}
+        </div>
+      </div>
+
+      {/* Preview */}
+      {(text||photos.length>0)&&<div style={{marginBottom:20}}>
+        <div style={{fontSize:12,color:G[400],marginBottom:8}}>プレビュー</div>
+        <div style={{padding:"14px",background:`linear-gradient(135deg, ${T[50]} 0%, ${BG} 100%)`,borderRadius:14,border:`0.5px solid ${T[200]}33`}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+            <div style={{width:18,height:18,borderRadius:"50%",background:T[400],display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:8,color:"#fff",fontWeight:700}}>✓</span></div>
+            <span style={{fontSize:12,fontWeight:600,color:T[800]}}>活動レポート</span>
+          </div>
+          {photos.length>0&&<div style={{marginBottom:8}}><PhotoStrip photos={photos} height={80}/></div>}
+          {text&&<div style={{fontSize:12,lineHeight:1.6,color:G[600],whiteSpace:"pre-line"}}>{text.slice(0,100)}{text.length>100?"…":""}</div>}
+        </div>
+      </div>}
+
+      {/* Submit */}
+      <PrimaryBtn onClick={()=>setSubmitted(true)} disabled={!text}>
+        レポートを投稿する
+      </PrimaryBtn>
+      <div style={{fontSize:11,color:G[400],textAlign:"center",marginTop:8}}>投稿後、タイムラインに公開されます</div>
+    </div>
+  </div>;
+}
+
+/* ════════════════════════════════════════
+   REPORT DETAIL PAGE
+   ════════════════════════════════════════ */
+function ReportDetailScreen({post:p,onBack,onProfile}){
+  const r=p.report;if(!r)return null;const helper=people.find(pp=>pp.id===r.helperId);
+  return <div style={{position:"fixed",inset:0,zIndex:100,background:BG,overflowY:"auto",maxWidth:430,margin:"0 auto"}}>
+    <div style={{padding:"16px 16px 14px",borderBottom:`0.5px solid ${G[100]}`,background:`linear-gradient(180deg, ${p.tagColor[50]} 0%, ${BG} 100%)`}}>
+      <button onClick={onBack} style={{fontSize:13,color:G[600],background:"none",border:"none",cursor:"pointer"}}>← 戻る</button>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,marginBottom:8}}><Badge text="完了レポート" bg={T[400]} fg="#fff"/><Badge text={p.tag} bg={p.tagColor[50]} fg={p.tagColor[800]}/><span style={{fontSize:12,color:G[400],marginLeft:"auto"}}>{r.completedDate}完了 · {r.duration}</span></div>
+      <div style={{fontSize:20,fontWeight:500,color:TXT,marginBottom:10}}>{p.title}</div>
+      <div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:"rgba(255,255,255,.7)",borderRadius:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}><Orb ch={p.posterCh} dots={p.posterDots} sz={28} color={p.posterDots>2?T:G}/><div><div style={{fontSize:12,fontWeight:500,color:TXT}}>{p.poster}</div><div style={{fontSize:10,color:G[400]}}>依頼者</div></div></div>
+        <div style={{fontSize:14,color:G[400]}}>×</div>
+        <div style={{display:"flex",alignItems:"center",gap:6,flex:1,cursor:"pointer"}} onClick={()=>{if(helper)onProfile(helper);}}>{helper&&<Orb ch={helper.ch} dots={helper.dots} sz={28} color={helper.color}/>}<div><div style={{fontSize:12,fontWeight:500,color:TXT}}>{r.helperName}</div><div style={{fontSize:10,color:G[400]}}>お手伝い</div></div></div>
+      </div>
+    </div>
+
+    {/* All photos */}
+    {r.photos?.length>0&&<div style={{padding:"16px 16px 0"}}><div style={{fontSize:14,fontWeight:600,color:TXT,marginBottom:10}}>📷 写真</div><PhotoStrip photos={r.photos}/></div>}
+
+    {/* Poster's report */}
+    <div style={{padding:"20px 16px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+        <Orb ch={p.posterCh} dots={p.posterDots} sz={32} color={p.posterDots>2?T:G}/>
+        <div><div style={{fontSize:14,fontWeight:500,color:TXT}}>{p.poster}さんの振り返り</div><div style={{fontSize:11,color:G[400]}}>依頼者</div></div>
+      </div>
+      <div style={{fontSize:13,color:G[600],lineHeight:1.8,whiteSpace:"pre-line",marginBottom:12}}>{r.posterReport.text}</div>
+      {r.posterReport.photos?.length>0&&<PhotoStrip photos={r.posterReport.photos} height={100}/>}
+    </div>
+
+    <div style={{height:1,background:G[100],margin:"0 16px"}}/>
+
+    {/* Helper's report */}
+    <div style={{padding:"20px 16px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,cursor:"pointer"}} onClick={()=>{if(helper)onProfile(helper);}}>
+        {helper&&<Orb ch={helper.ch} dots={helper.dots} sz={32} color={helper.color}/>}
+        <div><div style={{fontSize:14,fontWeight:500,color:TXT}}>{r.helperName}さんのレポート</div><div style={{fontSize:11,color:G[400]}}>お手伝い</div></div>
+      </div>
+      <div style={{fontSize:13,color:G[600],lineHeight:1.8,whiteSpace:"pre-line",marginBottom:12}}>{r.helperReport.text}</div>
+      {r.helperReport.photos?.length>0&&<PhotoStrip photos={r.helperReport.photos} height={100}/>}
+    </div>
+
+    <div style={{padding:"0 16px 24px"}}>
+      <div style={{padding:"14px",background:PU[50],borderRadius:12,border:`0.5px solid ${PU[400]}22`,textAlign:"center"}}>
+        <div style={{fontSize:13,fontWeight:500,color:PU[800],marginBottom:4}}>✦ このお手伝いにタグを贈りませんか？</div>
+        <div style={{fontSize:12,color:G[600]}}>{r.helperName}さんのプロフィールに表示されます</div>
+      </div>
+    </div>
+  </div>;
+}
+
+/* Report card in timeline */
+function ReportCard({post:p,onSelect}){
+  if(!p.report) return null;const r=p.report;const helper=people.find(pp=>pp.id===r.helperId);
+  return <div onClick={()=>onSelect(p)} style={{margin:"6px 16px",borderRadius:12,overflow:"hidden",border:`0.5px solid ${T[200]}44`,cursor:"pointer",background:BG}}>
+    {r.photos?.length>0&&<div style={{display:"flex",height:72}}>{r.photos.slice(0,3).map((ph,i)=><div key={i} style={{flex:1,background:ph.color,display:"flex",alignItems:"center",justifyContent:"center",borderRight:i<Math.min(r.photos.length,3)-1?`1px solid ${BG}`:"none"}}><span style={{fontSize:20,opacity:.25}}>{ph.icon||"📷"}</span></div>)}{r.photos.length>3&&<div style={{flex:1,background:G[50],display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:G[600]}}>+{r.photos.length-3}</div>}</div>}
+    <div style={{padding:"10px 14px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Badge text="完了" bg={T[50]} fg={T[800]}/><Badge text={p.tag} bg={p.tagColor[50]} fg={p.tagColor[800]}/><span style={{fontSize:11,color:G[400],marginLeft:"auto"}}>{r.completedDate}</span></div>
+      <div style={{fontSize:14,fontWeight:500,color:TXT,marginBottom:6}}>{p.title}</div>
+      <div style={{display:"flex",alignItems:"center",gap:6}}><Orb ch={p.posterCh} dots={p.posterDots} sz={20} color={p.posterDots>2?T:G}/><span style={{fontSize:11,color:G[400]}}>{p.poster}</span><span style={{color:G[400],fontSize:10}}>×</span>{helper&&<><Orb ch={helper.ch} dots={helper.dots} sz={20} color={helper.color}/><span style={{fontSize:11,color:G[400]}}>{helper.name}</span></>}</div>
+    </div>
+  </div>;
+}
+
+/* ═══ SCREENS ═══ */
+
+function ReferralCard({refId,refName,refFreeText,onClick}){const person=refId?people.find(p=>p.id===refId):null;const name=refFreeText||refName||person?.name;if(!name)return null;return <div onClick={onClick} style={{marginLeft:36,marginTop:6,padding:"8px 12px",background:`linear-gradient(135deg, ${T[50]} 0%, ${BG} 100%)`,borderRadius:10,border:`0.5px solid ${T[200]}44`,cursor:person?"pointer":"default",display:"flex",alignItems:"center",gap:8}}>{person?<Orb ch={person.ch} dots={Math.min(person.dots,3)} sz={24} color={person.color}/>:<span style={{fontSize:12}}>👤</span>}<div style={{flex:1}}><div style={{fontSize:12,color:T[800],fontWeight:500}}>→ {name}さんを紹介</div></div></div>;}
+
+function ConceptHero({dismissed,onDismiss}){if(dismissed)return null;
+  return <div style={{margin:"12px 16px",borderRadius:14,overflow:"hidden",background:`linear-gradient(145deg, ${T[50]} 0%, #f0f8f4 50%, ${BG} 100%)`,border:`0.5px solid ${T[200]}33`,position:"relative"}}>
+    <button onClick={onDismiss} style={{position:"absolute",top:10,right:12,background:"none",border:"none",color:G[400],fontSize:16,cursor:"pointer"}}>×</button>
+    <div style={{padding:"20px 20px 0",display:"flex",alignItems:"center",gap:12}}><Orb ch="mi" dots={6} sz={44} color={T}/><div><div style={{fontSize:17,fontWeight:600,color:TXT}}>ミセルへようこそ</div><div style={{fontSize:12,color:G[600],marginTop:2}}>コワーキングスペースmilkのつながりから生まれた<br/>中標津の共助プラットフォーム</div></div></div>
+    <div style={{display:"flex",gap:0,padding:"16px 12px 14px"}}>{[{icon:"💬",t:"困りごとを書く",d:"選ぶだけで投稿"},{icon:"🔗",t:"つながりが動く",d:"誰かが人を紹介"},{icon:"📋",t:"活動が残る",d:"レポートでアーカイブ"}].map((s,i)=><div key={i} style={{flex:1,textAlign:"center",position:"relative"}}>{i<2&&<div style={{position:"absolute",top:14,right:-4,color:G[100],fontSize:14}}>›</div>}<div style={{fontSize:18,marginBottom:4}}>{s.icon}</div><div style={{fontSize:11,fontWeight:600,color:TXT}}>{s.t}</div><div style={{fontSize:10,color:G[400],marginTop:1}}>{s.d}</div></div>)}</div>
+    <div style={{padding:"0 20px 14px"}}><div style={{padding:"8px 12px",background:"rgba(255,255,255,.7)",borderRadius:8,fontSize:11,color:G[600],lineHeight:1.6,textAlign:"center"}}>milkに集まる人のつながりが、地域のインフラになる。<br/>紹介も、活動も、すべてが見える場所です。</div></div>
+  </div>;
+}
+
+function HomeScreen({onSelect,onNotif,onProfile,unreadCount}){
+  const [filter,setFilter]=useState("all");const [hero,setHero]=useState(true);
+  const tags=["all","作業","送迎","制作","子ども","相談","暮らし","📋 完了"];
+  const isCom=filter==="📋 完了";
+  const filtered=isCom?resolvedPosts:filter==="all"?posts:posts.filter(p=>p.tag===filter);
+  const sorted=[...filtered].sort((a,b)=>{if(a.status==="open"&&b.status!=="open")return -1;if(a.status!=="open"&&b.status==="open")return 1;return b.sortDate.localeCompare(a.sortDate);});
+  return <div>
+    <div style={{padding:"16px 16px 10px",borderBottom:`0.5px solid ${G[100]}`}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setHero(true)}><Orb ch="mi" dots={6} sz={36} color={T}/><div><div style={{fontSize:18,fontWeight:500,color:TXT,letterSpacing:-.5}}>ミセル</div><div style={{fontSize:11,color:G[400]}}>milkの困りごと掲示板</div></div></div><button onClick={onNotif} style={{position:"relative",background:"none",border:"none",cursor:"pointer",padding:4}}><svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 2a5 5 0 00-5 5v3l-1.5 2h13L15 10V7a5 5 0 00-5-5z" fill="none" stroke={G[600]} strokeWidth="1.3"/><path d="M8 17a2 2 0 004 0" stroke={G[600]} strokeWidth="1.3" strokeLinecap="round"/></svg>{unreadCount>0&&<div style={{position:"absolute",top:0,right:0,width:16,height:16,borderRadius:"50%",background:CO[400],color:"#fff",fontSize:9,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{unreadCount}</div>}</button></div></div>
+    <ConceptHero dismissed={!hero} onDismiss={()=>setHero(false)}/>
+    <div style={{display:"flex",gap:6,padding:"6px 16px 8px",overflowX:"auto"}}>{tags.map(t=><Chip key={t} label={t==="all"?"すべて":t} selected={filter===t} onClick={()=>setFilter(t)}/>)}</div>
+    {isCom&&<div style={{padding:"4px 16px 8px",fontSize:12,color:G[600]}}>過去の活動レポート — タップして詳細を読む</div>}
+    {sorted.map(p=>p.report?<ReportCard key={p.id} post={p} onSelect={onSelect}/>:
+      <div key={p.id} onClick={()=>onSelect(p)} style={{margin:"6px 16px",padding:"14px 16px",background:BG,border:`0.5px solid ${G[100]}`,borderRadius:12,cursor:"pointer"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><Badge text={p.tag} bg={p.tagColor[50]} fg={p.tagColor[800]}/>{p.status==="matched"&&<Badge text="マッチ済" bg={T[50]} fg={T[800]}/>}{p.reward?<span style={{fontSize:12,color:T[600],fontWeight:500,marginLeft:"auto"}}>{p.reward}</span>:<span style={{fontSize:12,color:G[400],marginLeft:"auto"}}>無償</span>}</div>
+        <div style={{fontSize:15,fontWeight:500,color:TXT,marginBottom:6}}>{p.title}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}><Orb ch={p.posterCh} dots={p.posterDots} sz={24} color={p.posterDots>2?T:G}/><span style={{fontSize:12,color:G[600]}}>{p.poster}</span><span style={{fontSize:11,color:G[400]}}>{p.date}</span></div>
+        <div style={{marginTop:8,paddingTop:8,borderTop:`0.5px solid ${G[100]}`,fontSize:12,color:G[400]}}>{p.comments.length>0?`${p.comments.length}件のやりとり`:"まだやりとりなし"}{p.comments.filter(c=>c.refId).length>0&&<span style={{color:T[600],marginLeft:8}}>🔗 つなぎ{p.comments.filter(c=>c.refId).length}件</span>}</div>
+      </div>
+    )}
+  </div>;
+}
+
+function DetailScreen({post:p,onBack,onProfile,onApply,onIntroduce}){
+  return <div>
+    <div style={{padding:"16px 16px 14px",borderBottom:`0.5px solid ${G[100]}`}}>
+      <button onClick={onBack} style={{fontSize:13,color:G[400],background:"none",border:"none",cursor:"pointer"}}>← 戻る</button>
+      <div style={{display:"flex",gap:6,marginTop:10,marginBottom:8}}><Badge text={p.tag} bg={p.tagColor[50]} fg={p.tagColor[800]}/>{p.status==="matched"&&<Badge text="マッチ済" bg={T[50]} fg={T[800]}/>}</div>
+      <div style={{fontSize:20,fontWeight:500,color:TXT,marginBottom:8}}>{p.title}</div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}><Orb ch={p.posterCh} dots={p.posterDots} sz={32} color={p.posterDots>2?T:G}/><div style={{fontSize:13,fontWeight:500,color:TXT}}>{p.poster}</div>{p.reward&&<span style={{fontSize:14,fontWeight:500,color:T[600],marginLeft:"auto"}}>{p.reward}</span>}</div>
+    </div>
+    <div style={{padding:16,fontSize:14,lineHeight:1.8,color:G[600]}}>{p.body}</div>
+    <div style={{padding:"0 16px 8px",fontSize:13,fontWeight:500,color:TXT}}>やりとり（{p.comments.length}件）</div>
+    {p.comments.map((c,i)=><div key={i} style={{padding:"10px 16px",borderTop:`0.5px solid ${G[100]}`}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><Orb ch={c.ch} dots={c.dots} sz={28} color={c.color} onClick={()=>{if(!c.isMilk){const f=people.find(pp=>pp.id===c.userId);if(f)onProfile(f);}}}/><span style={{fontSize:13,fontWeight:500,color:TXT}}>{c.user}</span>{c.isMilk&&<Badge text="運営" bg={T[50]} fg={T[800]}/>}{c.viaRefName&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:6,background:T[50],color:T[800]}}>→ {c.viaRefName}の紹介</span>}</div>
+      <div style={{fontSize:13,lineHeight:1.6,color:G[600],marginLeft:36}}>{c.body}</div>
+      {(c.refId||c.refFreeText)&&<ReferralCard refId={c.refId} refName={c.refName} refFreeText={c.refFreeText} onClick={()=>{if(c.refId){const f=people.find(pp=>pp.id===c.refId);if(f)onProfile(f);}}}/>}
+    </div>)}
+    {p.status==="open"&&<div style={{padding:"12px 16px",borderTop:`0.5px solid ${G[100]}`}}><div style={{display:"flex",gap:8}}><button onClick={()=>onApply?.(p)} style={{flex:2,padding:13,borderRadius:12,fontSize:14,fontWeight:500,background:T[600],color:"#fff",border:"none",cursor:"pointer"}}>🙋 手伝いたい</button><button onClick={()=>onIntroduce?.(p)} style={{flex:1,padding:13,borderRadius:12,fontSize:13,fontWeight:500,background:BG2,color:T[800],border:`0.5px solid ${T[200]}`,cursor:"pointer"}}>🔗 紹介</button></div></div>}
+  </div>;
+}
+
+function ProfileScreen({person:p,onClose,onSelectPost,favorites,toggleFav}){
+  if(!p)return null;const isFav=favorites?.includes(p.id);const [tab,setTab]=useState("info");
+  const activity=[...posts.filter(pp=>pp.helperId===p.id&&pp.report).map(pp=>({...pp,role:"helper"})),...posts.filter(pp=>(pp.posterCh===p.ch)&&pp.report).map(pp=>({...pp,role:"requester"}))];
+  return <div style={{position:"fixed",inset:0,zIndex:100,background:BG,overflowY:"auto",maxWidth:430,margin:"0 auto"}}>
+    <div style={{position:"relative",paddingTop:20,paddingBottom:20,background:`linear-gradient(180deg, ${p.color[50]} 0%, ${BG} 100%)`}}>
+      <button onClick={onClose} style={{position:"absolute",top:16,left:16,fontSize:13,color:G[600],background:"none",border:"none",cursor:"pointer"}}>← 戻る</button>
+      {p.id&&!p.isKubo&&<button onClick={()=>toggleFav?.(p.id)} style={{position:"absolute",top:14,right:16,background:"none",border:"none",cursor:"pointer",padding:4}}><svg width="22" height="22" viewBox="0 0 22 22"><path d="M11 4C9.5 2 7 1.5 5 3s-2.5 5-.5 7.5L11 18l6.5-7.5c2-2.5 1.5-6-.5-7.5s-4.5-1-6 1z" fill={isFav?CO[400]:"none"} stroke={isFav?CO[400]:G[400]} strokeWidth="1.5"/></svg></button>}
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8,marginTop:24}}><Orb ch={p.ch} dots={p.dots} sz={72} color={p.color}/><div style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:500,color:TXT}}>{p.name}</div><div style={{fontSize:12,color:G[400],marginTop:2}}>{p.area}</div></div><div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>{(p.tags||[]).map(t=><Badge key={t} text={t} bg={T[50]} fg={T[800]}/>)}</div></div>
+    </div>
+    <div style={{display:"flex",justifyContent:"center",margin:"0 16px",borderRadius:12,overflow:"hidden",border:`0.5px solid ${G[100]}`}}>{[{l:"お手伝い",v:p.completedHelp||0},{l:"依頼",v:p.completedReq||0},{l:"紹介",v:p.referrals||0},{l:"タグ",v:(p.gifted||[]).length}].map((s,i)=><div key={s.l} style={{flex:1,padding:"12px 0",textAlign:"center",borderLeft:i?`0.5px solid ${G[100]}`:"none"}}><div style={{fontSize:18,fontWeight:500,color:TXT}}>{s.v}</div><div style={{fontSize:10,color:G[400],marginTop:2}}>{s.l}</div></div>)}</div>
+    <div style={{display:"flex",margin:"12px 16px 0"}}>{[{id:"info",l:"プロフィール"},{id:"activity",l:`活動 (${activity.length})`}].map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 0",fontSize:12,fontWeight:tab===t.id?600:400,color:tab===t.id?T[600]:G[400],background:"none",border:"none",borderBottom:`2px solid ${tab===t.id?T[600]:"transparent"}`,cursor:"pointer"}}>{t.l}</button>)}</div>
+    {tab==="info"&&<div style={{padding:"12px 16px"}}>
+      {p.bio&&<div style={{fontSize:13,lineHeight:1.7,color:G[600],marginBottom:14}}>{p.bio}</div>}
+      <div style={{marginBottom:14}}><div style={{fontSize:12,color:G[400],marginBottom:8}}>SNS</div><SnsLinks sns={p.sns} size="lg"/></div>
+      {p.can?.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,color:G[400],marginBottom:8}}>できること</div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{p.can.map(c=><span key={c} style={{fontSize:12,padding:"4px 12px",borderRadius:10,background:p.color[50],color:p.color[800]}}>{c}</span>)}</div></div>}
+      {(p.gifted||[]).length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,color:G[400],marginBottom:8}}>もらったタグ</div><GiftedTags tags={p.gifted}/></div>}
+      {p.milkComment&&<div style={{padding:"12px 14px",background:BG2,borderRadius:10}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><Orb ch="mi" dots={6} sz={20} color={T}/><span style={{fontSize:12,fontWeight:500,color:T[800]}}>milkより</span></div><div style={{fontSize:13,lineHeight:1.6,color:G[600]}}>{p.milkComment}</div></div>}
+    </div>}
+    {tab==="activity"&&<div style={{padding:"8px 16px"}}>
+      {activity.length===0&&<div style={{padding:"30px 0",textAlign:"center",color:G[400],fontSize:13}}>まだ活動履歴がありません</div>}
+      {activity.map(a=><div key={a.id+a.role} onClick={()=>onSelectPost(a)} style={{marginBottom:8,borderRadius:10,overflow:"hidden",border:`0.5px solid ${G[100]}`,cursor:"pointer"}}>
+        {a.report?.photos&&<div style={{display:"flex",height:56}}>{a.report.photos.slice(0,3).map((ph,i)=><div key={i} style={{flex:1,background:ph.color,display:"flex",alignItems:"center",justifyContent:"center",borderRight:i<2?`1px solid ${BG}`:"none"}}><span style={{fontSize:14,opacity:.25}}>{ph.icon}</span></div>)}</div>}
+        <div style={{padding:"10px 12px"}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Badge text={a.role==="helper"?"お手伝い":"依頼"} bg={a.role==="helper"?T[50]:BL[50]} fg={a.role==="helper"?T[800]:BL[800]}/><Badge text={a.tag} bg={a.tagColor[50]} fg={a.tagColor[800]}/><span style={{fontSize:11,color:G[400],marginLeft:"auto"}}>{a.report?.completedDate}</span></div><div style={{fontSize:13,fontWeight:500,color:TXT}}>{a.title}</div></div>
+      </div>)}
+    </div>}
+    <div style={{height:20}}/>
+  </div>;
+}
+
+function MyPageScreen({onProfile,onSelectPost,favorites,onWriteReport}){
+  const [tab,setTab]=useState("activity");
+  const matched=posts.filter(p=>p.status==="matched");
+  return <div>
+    <div style={{padding:"16px 16px 0",borderBottom:`0.5px solid ${G[100]}`}}>
+      <div style={{fontSize:18,fontWeight:500,color:TXT,marginBottom:12}}>マイページ</div>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}><Orb ch={myProfile.ch} dots={myProfile.dots} sz={52} color={myProfile.color}/><div style={{flex:1}}><div style={{fontSize:16,fontWeight:500,color:TXT}}>{myProfile.name}</div><div style={{fontSize:12,color:G[400],marginTop:2}}>{myProfile.area}</div><div style={{marginTop:4}}><SnsLinks sns={myProfile.sns}/></div></div><button style={{padding:"6px 12px",borderRadius:8,fontSize:11,color:G[600],background:BG2,border:`0.5px solid ${G[100]}`,cursor:"pointer"}}>編集</button></div>
+      <div style={{display:"flex",borderRadius:10,overflow:"hidden",border:`0.5px solid ${G[100]}`,marginBottom:12}}>{[{l:"お手伝い",v:myProfile.completedHelp},{l:"依頼",v:myProfile.completedReq},{l:"紹介",v:myProfile.referrals},{l:"タグ",v:(myProfile.gifted||[]).length},{l:"♥",v:favorites.length}].map((s,i)=><div key={s.l} style={{flex:1,padding:"10px 0",textAlign:"center",borderLeft:i?`0.5px solid ${G[100]}`:"none"}}><div style={{fontSize:16,fontWeight:500,color:TXT}}>{s.v}</div><div style={{fontSize:9,color:G[400],marginTop:1}}>{s.l}</div></div>)}</div>
+      {myProfile.gifted?.length>0&&<div style={{marginBottom:12}}><GiftedTags tags={myProfile.gifted}/></div>}
+      <div style={{display:"flex"}}>{[{id:"activity",l:"活動履歴"},{id:"favs",l:"お気に入り"}].map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 0",fontSize:12,fontWeight:tab===t.id?600:400,color:tab===t.id?T[600]:G[400],background:"none",border:"none",borderBottom:`2px solid ${tab===t.id?T[600]:"transparent"}`,cursor:"pointer"}}>{t.l}</button>)}</div>
+    </div>
+    {tab==="activity"&&<div style={{padding:"8px 16px"}}>
+      {/* Write report prompt for matched */}
+      {matched.map(p=><div key={p.id} style={{padding:"14px",background:`linear-gradient(135deg, ${CO[50]} 0%, ${BG} 100%)`,borderRadius:12,border:`0.5px solid ${CO[400]}33`,marginBottom:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><Badge text={p.tag} bg={p.tagColor[50]} fg={p.tagColor[800]}/><Badge text="マッチ済" bg={T[50]} fg={T[800]}/></div>
+        <div style={{fontSize:14,fontWeight:500,color:TXT,marginBottom:6}}>{p.title}</div>
+        <div style={{fontSize:12,color:G[600],marginBottom:10}}>完了したらレポートを書きましょう</div>
+        <button onClick={()=>onWriteReport(p)} style={{width:"100%",padding:"10px",borderRadius:8,fontSize:13,fontWeight:500,background:T[600],color:"#fff",border:"none",cursor:"pointer"}}>📋 活動レポートを書く</button>
+      </div>)}
+      {/* Past reports */}
+      {resolvedPosts.map(p=><div key={p.id} onClick={()=>onSelectPost(p)} style={{marginBottom:8,borderRadius:10,overflow:"hidden",border:`0.5px solid ${G[100]}`,cursor:"pointer"}}>
+        {p.report?.photos&&<div style={{display:"flex",height:56}}>{p.report.photos.slice(0,3).map((ph,i)=><div key={i} style={{flex:1,background:ph.color,display:"flex",alignItems:"center",justifyContent:"center",borderRight:i<2?`1px solid ${BG}`:"none"}}><span style={{fontSize:14,opacity:.25}}>{ph.icon}</span></div>)}</div>}
+        <div style={{padding:"10px 12px"}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Badge text="完了" bg={T[50]} fg={T[800]}/><Badge text={p.tag} bg={p.tagColor[50]} fg={p.tagColor[800]}/><span style={{fontSize:11,color:G[400],marginLeft:"auto"}}>{p.report?.completedDate}</span></div><div style={{fontSize:13,fontWeight:500,color:TXT}}>{p.title}</div></div>
+      </div>)}
+    </div>}
+    {tab==="favs"&&<div style={{padding:"8px 16px"}}>{people.filter(pp=>favorites.includes(pp.id)).map(pp=><div key={pp.id} onClick={()=>onProfile(pp)} style={{display:"flex",alignItems:"center",gap:10,padding:"12px",background:BG,border:`0.5px solid ${G[100]}`,borderRadius:10,marginBottom:8,cursor:"pointer"}}><Orb ch={pp.ch} dots={pp.dots} sz={40} color={pp.color}/><div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:TXT}}>{pp.name}</div><div style={{fontSize:11,color:G[400]}}>{pp.can?.join("・")}</div></div><span style={{color:CO[400]}}>♥</span></div>)}</div>}
+  </div>;
+}
+
+function PeopleScreen({onProfile,favorites}){
+  return <div>
+    <div style={{padding:"16px 16px 12px",borderBottom:`0.5px solid ${G[100]}`}}><div style={{fontSize:18,fontWeight:500,color:TXT}}>見せる</div><div style={{fontSize:12,color:G[400],marginTop:2}}>milkの周りの頼れる人たち</div></div>
+    <div style={{padding:"16px 16px 8px",display:"flex",justifyContent:"center",gap:16,flexWrap:"wrap"}}>{people.map(p=><div key={p.id} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:"pointer",position:"relative"}} onClick={()=>onProfile(p)}><Orb ch={p.ch} dots={p.dots} sz={52} color={p.color}/>{favorites?.includes(p.id)&&<span style={{position:"absolute",top:-2,right:-2,fontSize:10,color:CO[400]}}>♥</span>}<div style={{fontSize:11,color:G[600]}}>{p.name.slice(0,4)}</div></div>)}</div>
+    {people.map(p=><div key={p.id} onClick={()=>onProfile(p)} style={{margin:"8px 16px",padding:"14px 16px",background:BG,border:`0.5px solid ${G[100]}`,borderRadius:12,cursor:"pointer"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}><Orb ch={p.ch} dots={p.dots} sz={44} color={p.color}/><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:15,fontWeight:500,color:TXT}}>{p.name}</span>{favorites?.includes(p.id)&&<span style={{fontSize:11,color:CO[400]}}>♥</span>}</div><div style={{display:"flex",gap:4,marginTop:4,flexWrap:"wrap"}}>{p.can.map(c=><span key={c} style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:p.color[50],color:p.color[800]}}>{c}</span>)}</div></div></div>
+      {(p.gifted||[]).length>0&&<div style={{marginBottom:8}}><GiftedTags tags={p.gifted}/></div>}
+      {p.milkComment&&<div style={{padding:"8px 10px",background:BG2,borderRadius:8,fontSize:12,color:G[600],lineHeight:1.5}}><span style={{color:T[800],fontWeight:500}}>milk:</span> {p.milkComment}</div>}
+    </div>)}
+  </div>;
+}
+
+const ROUTES=[{id:"transport",label:"車で送ってほしい",icon:"🚗"},{id:"child",label:"子どもを見てほしい",icon:"👶"},{id:"elderly",label:"高齢の家族のことで",icon:"👴"},{id:"work",label:"作業を手伝ってほしい",icon:"🔨"},{id:"create",label:"何かを作ってほしい",icon:"🎨"},{id:"consult",label:"誰に相談すればいいか\nわからない",icon:"💬"},{id:"living",label:"その他の暮らし",icon:"🏠"}];
+function PostScreen(){const [route,setRoute]=useState(null);const [done,setDone]=useState(false);
+  if(done)return <div style={{padding:"60px 16px",textAlign:"center"}}><div style={{width:56,height:56,borderRadius:"50%",background:T[50],display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}><svg width="28" height="28" viewBox="0 0 28 28"><path d="M6 14l6 6 10-12" stroke={T[600]} fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div><div style={{fontSize:18,fontWeight:500,color:TXT,marginBottom:8}}>投稿しました</div><button onClick={()=>{setRoute(null);setDone(false);}} style={{marginTop:20,padding:"10px 24px",borderRadius:8,background:T[50],color:T[800],border:"none",fontSize:13,cursor:"pointer"}}>戻る</button></div>;
+  if(!route)return <div><div style={{padding:"16px 16px 12px",borderBottom:`0.5px solid ${G[100]}`}}><div style={{fontSize:18,fontWeight:500,color:TXT}}>困りごとを書く</div><div style={{fontSize:12,color:G[400],marginTop:2}}>選んでいくだけで投稿できます</div></div><div style={{padding:16}}><div style={{display:"flex",flexDirection:"column",gap:8}}>{ROUTES.map(r=><button key={r.id} onClick={()=>setRoute(r.id)} style={{padding:"12px 14px",borderRadius:10,border:`0.5px solid ${G[100]}`,background:BG,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:12}}><span style={{fontSize:20}}>{r.icon}</span><div style={{fontSize:14,fontWeight:500,color:TXT,whiteSpace:"pre-line"}}>{r.label}</div></button>)}</div></div></div>;
+  return <div><div style={{padding:"12px 16px",borderBottom:`0.5px solid ${G[100]}`}}><button onClick={()=>setRoute(null)} style={{fontSize:13,color:G[400],background:"none",border:"none",cursor:"pointer"}}>← 戻る</button></div><div style={{padding:"40px 16px",textAlign:"center"}}><div style={{fontSize:40,marginBottom:12}}>{ROUTES.find(r=>r.id===route)?.icon}</div><div style={{fontSize:15,fontWeight:500,color:TXT}}>{ROUTES.find(r=>r.id===route)?.label}</div><div style={{marginTop:20}}><PrimaryBtn onClick={()=>setDone(true)}>投稿する（デモ）</PrimaryBtn></div></div></div>;
+}
+
+function IntroduceModal({onClose}){const [sent,setSent]=useState(false);const [msg,setMsg]=useState("");
+  if(sent)return <Overlay onClose={onClose}><div style={{padding:"40px 16px",textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>🔗</div><div style={{fontSize:16,fontWeight:500,color:TXT}}>紹介しました！</div><button onClick={onClose} style={{marginTop:20,padding:"10px 24px",borderRadius:8,background:T[50],color:T[800],border:"none",fontSize:13,cursor:"pointer"}}>閉じる</button></div></Overlay>;
+  return <Overlay onClose={onClose}><div style={{padding:"20px 16px"}}><div style={{width:36,height:4,borderRadius:2,background:G[100],margin:"0 auto 16px"}}/><div style={{fontSize:16,fontWeight:500,color:TXT,marginBottom:12}}>🔗 人を紹介する</div><div style={{fontSize:11,color:G[600],padding:"8px 10px",background:AM[50],borderRadius:8,marginBottom:14,lineHeight:1.5}}>紹介は推薦です。結果の保証ではありません。</div><Label>紹介のコメント（必須）</Label><TextArea placeholder="例: この人なら○○が得意で信頼できます" value={msg} onChange={setMsg}/><div style={{marginTop:14}}><PrimaryBtn onClick={()=>setSent(true)} disabled={!msg}>紹介する</PrimaryBtn></div></div></Overlay>;
+}
+function ApplyModal({post,onClose}){const [sent,setSent]=useState(false);if(!post)return null;
+  if(sent)return <Overlay onClose={onClose}><div style={{padding:"40px 16px",textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>🙌</div><div style={{fontSize:16,fontWeight:500,color:TXT}}>応募しました！</div><button onClick={onClose} style={{marginTop:20,padding:"10px 24px",borderRadius:8,background:T[50],color:T[800],border:"none",fontSize:13,cursor:"pointer"}}>閉じる</button></div></Overlay>;
+  return <Overlay onClose={onClose}><div style={{padding:"20px 16px"}}><div style={{width:36,height:4,borderRadius:2,background:G[100],margin:"0 auto 16px"}}/><div style={{fontSize:16,fontWeight:500,color:TXT,marginBottom:12}}>🙋 応募する</div><div style={{display:"flex",alignItems:"center",gap:10,padding:"12px",background:BG2,borderRadius:10,marginBottom:14}}><Orb ch={myProfile.ch} dots={myProfile.dots} sz={36} color={myProfile.color}/><div><div style={{fontSize:13,fontWeight:500,color:TXT}}>{myProfile.name}</div><div style={{fontSize:11,color:G[400]}}>{myProfile.area}</div></div></div><PrimaryBtn onClick={()=>setSent(true)}>応募する</PrimaryBtn></div></Overlay>;
+}
+
+function NavIcon({type,active}){const c=active?T[600]:G[400];if(type==="board")return <svg width="20" height="20" viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2" stroke={c} fill="none" strokeWidth="1.2"/><path d="M7 7h6M7 10h4M7 13h5" stroke={c} strokeWidth="1.2" strokeLinecap="round"/></svg>;if(type==="post")return <svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" stroke={c} fill="none" strokeWidth="1.2"/><path d="M10 7v6M7 10h6" stroke={c} strokeWidth="1.2" strokeLinecap="round"/></svg>;if(type==="people")return <svg width="20" height="20" viewBox="0 0 20 20"><circle cx="8" cy="7" r="3" stroke={c} fill="none" strokeWidth="1.2"/><circle cx="14" cy="8" r="2.5" stroke={c} fill="none" strokeWidth="1.2"/><path d="M2 16c0-2.8 2.2-5 5-5h2c2.8 0 5 2.2 5 5" stroke={c} fill="none" strokeWidth="1.2"/></svg>;if(type==="mypage")return <svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.5" stroke={c} fill="none" strokeWidth="1.2"/><path d="M3.5 17c0-3.3 2.9-6 6.5-6s6.5 2.7 6.5 6" stroke={c} fill="none" strokeWidth="1.2"/></svg>;return null;}
+
+/* ═══ APP ═══ */
+function App(){
+  const [tab,setTab]=useState("board");const [sel,setSel]=useState(null);const [reportPost,setReportPost]=useState(null);
+  const [profileTarget,setProfileTarget]=useState(null);const [applyTarget,setApplyTarget]=useState(null);
+  const [introducePost,setIntroducePost]=useState(null);const [writeReportPost,setWriteReportPost]=useState(null);
+  const [favorites,setFavorites]=useState(["tanaka","yamada"]);
+  const go=t=>{setTab(t);setSel(null);};const toggleFav=id=>setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[...f,id]);
+  const selectPost=(p)=>{if(p.status==="resolved"&&p.report){setReportPost(p);}else{setSel(p);setTab("detail");}};
+
+  return <div style={{maxWidth:430,margin:"0 auto",minHeight:"100vh",display:"flex",flexDirection:"column",background:BG,fontFamily:"-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN',Meiryo,sans-serif",color:TXT}}>
+    <div style={{flex:1,overflowY:"auto",paddingBottom:60}}>
+      {tab==="board"&&!sel&&<HomeScreen onSelect={selectPost} onProfile={p=>setProfileTarget(p)} onNotif={()=>go("notif")} unreadCount={2}/>}
+      {tab==="detail"&&sel&&<DetailScreen post={sel} onBack={()=>go("board")} onProfile={p=>setProfileTarget(p)} onApply={p=>setApplyTarget(p)} onIntroduce={p=>setIntroducePost(p)}/>}
+      {tab==="post"&&<PostScreen/>}
+      {tab==="people"&&<PeopleScreen onProfile={p=>setProfileTarget(p)} favorites={favorites}/>}
+      {tab==="mypage"&&<MyPageScreen onProfile={p=>setProfileTarget(p)} onSelectPost={selectPost} favorites={favorites} onWriteReport={p=>setWriteReportPost(p)}/>}
+    </div>
+    <div style={{position:"fixed",bottom:0,left:0,right:0,maxWidth:430,margin:"0 auto",display:"flex",borderTop:`0.5px solid ${G[100]}`,background:BG,paddingBottom:"env(safe-area-inset-bottom,8px)",zIndex:20}}>
+      {[{id:"board",icon:"board",l:"掲示板"},{id:"post",icon:"post",l:"書く"},{id:"people",icon:"people",l:"見せる"},{id:"mypage",icon:"mypage",l:"マイページ"}].map(n=><button key={n.id} onClick={()=>go(n.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"8px 0 4px",background:"none",border:"none",cursor:"pointer",color:(tab===n.id||(n.id==="board"&&tab==="detail"))?T[600]:G[400],fontSize:10}}><NavIcon type={n.icon} active={tab===n.id||(n.id==="board"&&tab==="detail")}/>{n.l}</button>)}
+    </div>
+    {reportPost&&<ReportDetailScreen post={reportPost} onBack={()=>setReportPost(null)} onProfile={p=>setProfileTarget(p)}/>}
+    {profileTarget&&<ProfileScreen person={profileTarget} onClose={()=>setProfileTarget(null)} onSelectPost={p=>{setProfileTarget(null);selectPost(p);}} favorites={favorites} toggleFav={toggleFav}/>}
+    {applyTarget&&<ApplyModal post={applyTarget} onClose={()=>setApplyTarget(null)}/>}
+    {introducePost&&<IntroduceModal onClose={()=>setIntroducePost(null)}/>}
+    {writeReportPost&&<ReportInputScreen post={writeReportPost} onClose={()=>setWriteReportPost(null)}/>}
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
